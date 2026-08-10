@@ -1,0 +1,8 @@
+{
+  "name": "SUPERAPP",
+  "description": "SUPERAPP: Processamento de planilhas Excel com células mescladas e dashboards dinâmicos por Onda, Etapa e Porcentagem de Conclusão.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

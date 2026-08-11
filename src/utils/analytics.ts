@@ -21,6 +21,7 @@ export function computeDeadlineAnalytics(rows: ExcelRow[], customRefDateStr?: st
   const overdueItems: DeadlineItem[] = [];
   const dueSoonItems: DeadlineItem[] = [];
   const noStartDateItems: DeadlineItem[] = [];
+  const onTrackItems: DeadlineItem[] = [];
 
   let totalWithDates = 0;
   let overdueCount = 0;
@@ -48,13 +49,13 @@ export function computeDeadlineAnalytics(rows: ExcelRow[], customRefDateStr?: st
     const pct = row.calculatedPorcentagem ?? row.porcentagem;
     const isCompleted = getRowStatus(row) === 'COMPLETED' || pct === 100;
 
-    const hasTermino = Boolean(row.terminoEstimativa);
-    const hasInicio = Boolean(row.inicioEstimativa);
+    const rawTermino = row.terminoEstimativa?.trim();
+    const isDefaultTermino = !rawTermino;
+    const effectiveTermino = rawTermino || '2026-12-31';
+    const hasInicio = Boolean(row.inicioEstimativa?.trim());
 
-    if (hasTermino || hasInicio) {
-      totalWithDates++;
-      ondaStats.total++;
-    }
+    totalWithDates++;
+    ondaStats.total++;
 
     if (isCompleted) {
       completedCount++;
@@ -66,25 +67,23 @@ export function computeDeadlineAnalytics(rows: ExcelRow[], customRefDateStr?: st
     let daysDiff = 999;
     let statusLabel = 'No Prazo';
 
-    if (!hasInicio) {
-      status = 'NO_START_DATE';
-      statusLabel = 'Sem Data de Início';
-    } else if (hasTermino) {
-      const terminoDate = new Date(row.terminoEstimativa!);
-      terminoDate.setHours(0, 0, 0, 0);
-      daysDiff = Math.round((terminoDate.getTime() - refDate.getTime()) / (1000 * 60 * 60 * 24));
+    const terminoDate = new Date(effectiveTermino);
+    terminoDate.setHours(0, 0, 0, 0);
+    daysDiff = Math.round((terminoDate.getTime() - refDate.getTime()) / (1000 * 60 * 60 * 24));
 
-      if (daysDiff < 0) {
-        status = 'OVERDUE';
-        const absDays = Math.abs(daysDiff);
-        statusLabel = absDays === 1 ? 'Atrasado 1 dia' : `Atrasado ${absDays} dias`;
-      } else if (daysDiff <= 15) {
-        status = 'DUE_SOON';
-        statusLabel = daysDiff === 0 ? 'Vence Hoje' : daysDiff === 1 ? 'Vence Amanhã' : `Vence em ${daysDiff} dias`;
-      } else {
-        status = 'ON_TRACK';
-        statusLabel = 'No Prazo';
-      }
+    if (!hasInicio && isDefaultTermino) {
+      status = 'NO_START_DATE';
+      statusLabel = 'Sem Data Início (31/12/2026 Padrão)';
+    } else if (daysDiff < 0) {
+      status = 'OVERDUE';
+      const absDays = Math.abs(daysDiff);
+      statusLabel = absDays === 1 ? 'Atrasado 1 dia' : `Atrasado ${absDays} dias`;
+    } else if (daysDiff <= 15) {
+      status = 'DUE_SOON';
+      statusLabel = daysDiff === 0 ? 'Vence Hoje' : daysDiff === 1 ? 'Vence Amanhã' : `Vence em ${daysDiff} dias`;
+    } else {
+      status = 'ON_TRACK';
+      statusLabel = isDefaultTermino ? 'No Prazo (31/12/2026 Padrão)' : 'No Prazo';
     }
 
     const item: DeadlineItem = {
@@ -92,6 +91,8 @@ export function computeDeadlineAnalytics(rows: ExcelRow[], customRefDateStr?: st
       status,
       daysDiff,
       statusLabel,
+      isDefaultTermino,
+      effectiveTermino,
     };
 
     if (status === 'OVERDUE') {
@@ -109,12 +110,14 @@ export function computeDeadlineAnalytics(rows: ExcelRow[], customRefDateStr?: st
     } else {
       onTrackCount++;
       ondaStats.onTrack++;
+      onTrackItems.push(item);
     }
   });
 
   overdueItems.sort((a, b) => a.daysDiff - b.daysDiff);
   dueSoonItems.sort((a, b) => a.daysDiff - b.daysDiff);
   noStartDateItems.sort((a, b) => a.row.funcionalidade.localeCompare(b.row.funcionalidade));
+  onTrackItems.sort((a, b) => a.daysDiff - b.daysDiff);
 
   const ondaDeadlineSummaries: OndaDeadlineSummary[] = Array.from(ondaMap.entries()).map(([onda, stats]) => ({
     onda,
@@ -139,6 +142,7 @@ export function computeDeadlineAnalytics(rows: ExcelRow[], customRefDateStr?: st
     overdueItems,
     dueSoonItems,
     noStartDateItems,
+    onTrackItems,
     ondaDeadlineSummaries,
   };
 }
@@ -227,7 +231,12 @@ export interface DashboardAnalytics {
   deadlineAnalytics: DeadlineAnalytics;
 }
 
-export function computeAnalytics(rows: ExcelRow[], customRefDateStr?: string): DashboardAnalytics {
+export function computeAnalytics(rawRows: ExcelRow[], customRefDateStr?: string): DashboardAnalytics {
+  // Filter out any rows where onda does not contain 'ONDA'
+  const rows = (rawRows || []).filter(
+    (r) => r.onda && r.onda.toUpperCase().includes('ONDA')
+  );
+
   const deadlineAnalytics = computeDeadlineAnalytics(rows, customRefDateStr);
 
   if (!rows || rows.length === 0) {
@@ -348,11 +357,16 @@ export function computeAnalytics(rows: ExcelRow[], customRefDateStr?: string): D
   const etapaMap = new Map<string, ExcelRow[]>();
 
   rows.forEach((row) => {
-    const ondaKey = row.onda || 'ONDA 1';
+    const ondaKey = row.onda;
     if (!ondaMap.has(ondaKey)) ondaMap.set(ondaKey, []);
     ondaMap.get(ondaKey)!.push(row);
 
-    const etapaKey = row.etapa || 'Geral';
+    let etapaKey = String(row.etapa || 'Geral').trim();
+    const eUpper = etapaKey.toUpperCase();
+    if (!etapaKey || ['N.A', 'N.A.', 'N/A', 'N/A.', 'NA', '-', 'N/D', 'N/E', 'NULL', 'NONE'].includes(eUpper)) {
+      etapaKey = 'Geral';
+    }
+
     if (!etapaMap.has(etapaKey)) etapaMap.set(etapaKey, []);
     etapaMap.get(etapaKey)!.push(row);
   });

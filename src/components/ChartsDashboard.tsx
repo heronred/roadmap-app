@@ -35,6 +35,7 @@ import {
   FileSpreadsheet,
   FileText,
   Loader2,
+  Info,
 } from 'lucide-react';
 import { UploadedDataset, OndaSummary } from '../types';
 import { computeAnalytics } from '../utils/analytics';
@@ -49,10 +50,54 @@ export const ChartsDashboard: React.FC<ChartsDashboardProps> = ({ dataset, onGoT
   const [customRefDate, setCustomRefDate] = useState<string>(() => {
     return new Date().toISOString().split('T')[0];
   });
-  const [activeDeadlineTab, setActiveDeadlineTab] = useState<'ALL' | 'OVERDUE' | 'DUE_SOON' | 'NO_START_DATE'>('ALL');
+  const [activeDeadlineTab, setActiveDeadlineTab] = useState<'ALL' | 'OVERDUE' | 'DUE_SOON' | 'ON_TRACK' | 'NO_START_DATE'>('ALL');
+  const [superAppFilter, setSuperAppFilter] = useState<'PENDING' | 'ALL' | 'COMPLETED'>('PENDING');
+  const [selectedSuperAppOnda, setSelectedSuperAppOnda] = useState<string>('ALL');
 
   const analytics = computeAnalytics(dataset.rows, customRefDate);
   const deadlines = analytics.deadlineAnalytics;
+
+  // SuperApp Homologation Items calculation
+  const superAppItems = React.useMemo(() => {
+    return dataset.rows
+      .filter(
+        (r) =>
+          r.funcionalidade.toLowerCase().includes('homolog') ||
+          r.etapa.toLowerCase().includes('homolog')
+      )
+      .sort((a, b) => a.rawRowIndex - b.rawRowIndex);
+  }, [dataset.rows]);
+
+  const availableSuperAppOndas = React.useMemo(() => {
+    const ondaSet = new Set<string>();
+    superAppItems.forEach((r) => {
+      if (r.onda) ondaSet.add(r.onda);
+    });
+    return Array.from(ondaSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [superAppItems]);
+
+  const superAppItemsByOnda = React.useMemo(() => {
+    if (selectedSuperAppOnda === 'ALL') return superAppItems;
+    return superAppItems.filter((r) => r.onda === selectedSuperAppOnda);
+  }, [superAppItems, selectedSuperAppOnda]);
+
+  const superAppPendingCount = React.useMemo(() => {
+    return superAppItemsByOnda.filter((r) => (r.calculatedPorcentagem ?? r.porcentagem) < 100).length;
+  }, [superAppItemsByOnda]);
+
+  const superAppCompletedCount = React.useMemo(() => {
+    return superAppItemsByOnda.filter((r) => (r.calculatedPorcentagem ?? r.porcentagem) === 100).length;
+  }, [superAppItemsByOnda]);
+
+  const displayedSuperAppItems = React.useMemo(() => {
+    if (superAppFilter === 'PENDING') {
+      return superAppItemsByOnda.filter((r) => (r.calculatedPorcentagem ?? r.porcentagem) < 100);
+    }
+    if (superAppFilter === 'COMPLETED') {
+      return superAppItemsByOnda.filter((r) => (r.calculatedPorcentagem ?? r.porcentagem) === 100);
+    }
+    return superAppItemsByOnda;
+  }, [superAppItemsByOnda, superAppFilter]);
 
   const dashboardRef = useRef<HTMLDivElement>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -427,6 +472,55 @@ export const ChartsDashboard: React.FC<ChartsDashboardProps> = ({ dataset, onGoT
                 </BarChart>
               </ResponsiveContainer>
             </div>
+
+            {/* Legenda Explicativa de Status e Prazo Padrão */}
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 text-xs text-slate-300 space-y-2 mt-2">
+              <div className="flex items-center gap-1.5 font-bold text-sky-400">
+                <Info className="w-4 h-4 text-sky-400 shrink-0" />
+                <span>Legenda e Regra de Prazos (Coluna E & Data Atual)</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-[11px] text-slate-400">
+                <div className="bg-slate-950 p-2 rounded-lg border border-slate-800">
+                  <div className="font-bold text-blue-300 flex items-center gap-1.5 mb-0.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0" />
+                    <span>No Prazo (31/12/2026 Padrão)</span>
+                  </div>
+                  <p className="leading-tight">
+                    Tarefas em andamento com prazo futuro. Tarefas sem data final na Coluna E consideram <strong>31/12/2026</strong> como prazo padrão.
+                  </p>
+                </div>
+
+                <div className="bg-slate-950 p-2 rounded-lg border border-slate-800">
+                  <div className="font-bold text-red-300 flex items-center gap-1.5 mb-0.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0" />
+                    <span>Atrasadas (Prazo Estourado)</span>
+                  </div>
+                  <p className="leading-tight">
+                    Tarefas em andamento cuja data final de término (Coluna E) é menor que a data atual de referência.
+                  </p>
+                </div>
+
+                <div className="bg-slate-950 p-2 rounded-lg border border-slate-800">
+                  <div className="font-bold text-amber-300 flex items-center gap-1.5 mb-0.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
+                    <span>Próximas ao Vencimento</span>
+                  </div>
+                  <p className="leading-tight">
+                    Tarefas em andamento com vencimento nos próximos 15 dias em relação à data atual.
+                  </p>
+                </div>
+
+                <div className="bg-slate-950 p-2 rounded-lg border border-slate-800">
+                  <div className="font-bold text-emerald-300 flex items-center gap-1.5 mb-0.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                    <span>Concluídas</span>
+                  </div>
+                  <p className="leading-tight">
+                    Tarefas finalizadas (progresso igual a 100%).
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* PieChart: Proporção de Saúde do Cronograma */}
@@ -518,15 +612,17 @@ export const ChartsDashboard: React.FC<ChartsDashboardProps> = ({ dataset, onGoT
                     ? deadlines.overdueItems.length
                     : activeDeadlineTab === 'DUE_SOON'
                     ? deadlines.dueSoonItems.length
+                    : activeDeadlineTab === 'ON_TRACK'
+                    ? deadlines.onTrackItems.length
                     : activeDeadlineTab === 'NO_START_DATE'
                     ? deadlines.noStartDateItems.length
-                    : deadlines.overdueItems.length + deadlines.dueSoonItems.length + deadlines.noStartDateItems.length
+                    : deadlines.overdueItems.length + deadlines.dueSoonItems.length + deadlines.noStartDateItems.length + deadlines.onTrackItems.length
                 } itens)
               </span>
             </h3>
 
             {/* Filter Tabs */}
-            <div className="flex items-center space-x-1 bg-slate-950 p-1 rounded-lg border border-slate-800 self-start sm:self-auto">
+            <div className="flex flex-wrap items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 self-start sm:self-auto">
               <button
                 onClick={() => setActiveDeadlineTab('ALL')}
                 className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${
@@ -550,6 +646,14 @@ export const ChartsDashboard: React.FC<ChartsDashboardProps> = ({ dataset, onGoT
                 }`}
               >
                 Próximas ({deadlines.dueSoonCount})
+              </button>
+              <button
+                onClick={() => setActiveDeadlineTab('ON_TRACK')}
+                className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${
+                  activeDeadlineTab === 'ON_TRACK' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                No Prazo ({deadlines.onTrackCount})
               </button>
               <button
                 onClick={() => setActiveDeadlineTab('NO_START_DATE')}
@@ -580,9 +684,11 @@ export const ChartsDashboard: React.FC<ChartsDashboardProps> = ({ dataset, onGoT
                     ? deadlines.overdueItems
                     : activeDeadlineTab === 'DUE_SOON'
                     ? deadlines.dueSoonItems
+                    : activeDeadlineTab === 'ON_TRACK'
+                    ? deadlines.onTrackItems
                     : activeDeadlineTab === 'NO_START_DATE'
                     ? deadlines.noStartDateItems
-                    : [...deadlines.overdueItems, ...deadlines.dueSoonItems, ...deadlines.noStartDateItems]
+                    : [...deadlines.overdueItems, ...deadlines.dueSoonItems, ...deadlines.noStartDateItems, ...deadlines.onTrackItems]
                 ).length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center py-8 text-slate-500">
@@ -595,10 +701,12 @@ export const ChartsDashboard: React.FC<ChartsDashboardProps> = ({ dataset, onGoT
                       ? deadlines.overdueItems
                       : activeDeadlineTab === 'DUE_SOON'
                       ? deadlines.dueSoonItems
+                      : activeDeadlineTab === 'ON_TRACK'
+                      ? deadlines.onTrackItems
                       : activeDeadlineTab === 'NO_START_DATE'
                       ? deadlines.noStartDateItems
-                      : [...deadlines.overdueItems, ...deadlines.dueSoonItems, ...deadlines.noStartDateItems]
-                  ).map(({ row, status, statusLabel }) => (
+                      : [...deadlines.overdueItems, ...deadlines.dueSoonItems, ...deadlines.noStartDateItems, ...deadlines.onTrackItems]
+                  ).map(({ row, status, statusLabel, isDefaultTermino }) => (
                     <tr key={row.id} className="hover:bg-slate-800/40 transition-colors">
                       <td className="py-2.5 px-3 whitespace-nowrap">
                         {status === 'OVERDUE' && (
@@ -620,8 +728,8 @@ export const ChartsDashboard: React.FC<ChartsDashboardProps> = ({ dataset, onGoT
                           </span>
                         )}
                         {status === 'ON_TRACK' && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px] font-medium">
-                            <CheckCircle className="w-3 h-3 mr-1 text-emerald-400" />
+                          <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[11px] font-medium">
+                            <CheckCircle className="w-3 h-3 mr-1 text-blue-400" />
                             {statusLabel}
                           </span>
                         )}
@@ -641,8 +749,14 @@ export const ChartsDashboard: React.FC<ChartsDashboardProps> = ({ dataset, onGoT
                         {row.inicioEstimativa || '—'}
                       </td>
 
-                      <td className="py-2.5 px-3 font-mono text-slate-200 font-semibold whitespace-nowrap">
-                        {row.terminoEstimativa || '—'}
+                      <td className="py-2.5 px-3 font-mono whitespace-nowrap">
+                        {row.terminoEstimativa ? (
+                          <span className="text-slate-200 font-semibold">{row.terminoEstimativa}</span>
+                        ) : (
+                          <span className="text-blue-300 font-sans text-[11px] bg-blue-950/60 border border-blue-500/30 px-1.5 py-0.5 rounded">
+                            31/12/2026 (Padrão)
+                          </span>
+                        )}
                       </td>
 
                       <td className="py-2.5 px-3 text-right font-bold whitespace-nowrap">
@@ -765,7 +879,251 @@ export const ChartsDashboard: React.FC<ChartsDashboardProps> = ({ dataset, onGoT
         </div>
       )}
 
-      {/* Row 1 Charts: Comparativo por Onda (%) & Distribuição de Progresso */}
+      {/* SEÇÃO SUPERAPP - CONTROLE DE HOMOLOGAÇÃO (COLUNA C) */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+        {/* Header & Controls */}
+        <div className="flex flex-col gap-4 border-b border-slate-800 pb-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center space-x-2">
+                <span className="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-xs font-semibold border border-purple-500/30 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  <span>SuperApp</span>
+                </span>
+                <span className="text-xs text-slate-400">
+                  Mapeamento automático da Coluna C (Homologação / Homologar)
+                </span>
+              </div>
+              <h2 className="text-xl font-black text-white flex items-center space-x-2">
+                <span>SuperApp - Itens para Homologação</span>
+              </h2>
+              <p className="text-xs text-slate-400">
+                Destaque em cards ordenados por item para acompanhamento do que precisa ser homologado.
+              </p>
+            </div>
+
+            {/* Filter Buttons */}
+            <div className="flex items-center space-x-1 bg-slate-950 p-1 rounded-xl border border-slate-800 self-start sm:self-auto shrink-0">
+              <button
+                onClick={() => setSuperAppFilter('PENDING')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  superAppFilter === 'PENDING'
+                    ? 'bg-purple-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                A Homologar ({superAppPendingCount})
+              </button>
+              <button
+                onClick={() => setSuperAppFilter('ALL')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  superAppFilter === 'ALL'
+                    ? 'bg-slate-700 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Todos ({superAppItemsByOnda.length})
+              </button>
+              <button
+                onClick={() => setSuperAppFilter('COMPLETED')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  superAppFilter === 'COMPLETED'
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Homologados ({superAppCompletedCount})
+              </button>
+            </div>
+          </div>
+
+          {/* Onda Filter Bar */}
+          {availableSuperAppOndas.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-800/60">
+              <span className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-purple-400" />
+                <span>Selecionar Onda:</span>
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  onClick={() => setSelectedSuperAppOnda('ALL')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    selectedSuperAppOnda === 'ALL'
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
+                >
+                  Todas as Ondas ({superAppItems.length})
+                </button>
+                {availableSuperAppOndas.map((ondaName) => {
+                  const count = superAppItems.filter((r) => r.onda === ondaName).length;
+                  return (
+                    <button
+                      key={ondaName}
+                      onClick={() => setSelectedSuperAppOnda(ondaName)}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                        selectedSuperAppOnda === ondaName
+                          ? 'bg-purple-600 text-white shadow-sm'
+                          : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                      }`}
+                    >
+                      {ondaName} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Summary Stats Strip */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Total em Homologação</div>
+              <div className="text-2xl font-black text-white mt-1">{superAppItems.length} <span className="text-xs text-slate-500 font-normal">itens</span></div>
+            </div>
+            <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-xl text-purple-400">
+              <Sparkles className="w-5 h-5" />
+            </div>
+          </div>
+
+          <div className="bg-purple-950/30 border border-purple-500/30 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-bold text-purple-300 uppercase tracking-wider">Precisa Homologar Ainda</div>
+              <div className="text-2xl font-black text-purple-300 mt-1">{superAppPendingCount} <span className="text-xs text-purple-400/80 font-normal">pendentes</span></div>
+            </div>
+            <div className="p-3 bg-purple-500/20 border border-purple-500/40 rounded-xl text-purple-300">
+              <Clock className="w-5 h-5 animate-pulse" />
+            </div>
+          </div>
+
+          <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-bold text-emerald-300 uppercase tracking-wider">Homologação Concluída</div>
+              <div className="text-2xl font-black text-emerald-300 mt-1">{superAppCompletedCount} <span className="text-xs text-emerald-400/80 font-normal">finalizados</span></div>
+            </div>
+            <div className="p-3 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-300">
+              <CheckCircle className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
+
+        {/* Cards Grid */}
+        {displayedSuperAppItems.length === 0 ? (
+          <div className="text-center py-10 bg-slate-950/40 border border-slate-800 rounded-xl">
+            <Sparkles className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+            <p className="text-sm font-semibold text-slate-300">
+              Nenhum item de homologação encontrado neste filtro.
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              {superAppFilter === 'PENDING' && superAppPendingCount === 0 && superAppCompletedCount > 0
+                ? 'Todos os itens de homologação foram concluídos (100%)!'
+                : 'Insira "Homologação" ou "Homologar" nos itens da Coluna C da planilha.'}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {displayedSuperAppItems.map((item, idx) => {
+              const pct = item.calculatedPorcentagem ?? item.porcentagem;
+              const isDone = pct === 100;
+              const isInProgress = pct > 0 && pct < 100;
+
+              return (
+                <div
+                  key={item.id}
+                  className={`bg-slate-950/70 border rounded-xl p-4 flex flex-col justify-between space-y-4 relative overflow-hidden transition-all hover:border-purple-500/50 hover:shadow-xl ${
+                    isDone
+                      ? 'border-emerald-500/30 bg-emerald-950/10'
+                      : isInProgress
+                      ? 'border-amber-500/30 bg-amber-950/10'
+                      : 'border-purple-500/40 bg-purple-950/10 ring-1 ring-purple-500/20'
+                  }`}
+                >
+                  {/* Top Color Line */}
+                  <div
+                    className={`absolute top-0 left-0 right-0 h-1 ${
+                      isDone ? 'bg-emerald-500' : isInProgress ? 'bg-amber-500' : 'bg-purple-500'
+                    }`}
+                  />
+
+                  <div className="space-y-3">
+                    {/* Header Row */}
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[11px] font-semibold border border-slate-700">
+                        Item #{idx + 1} • Linha {item.rawRowIndex}
+                      </span>
+
+                      {isDone ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold border border-emerald-500/30">
+                          <CheckCircle className="w-3 h-3 mr-1 text-emerald-400" />
+                          Homologado (100%)
+                        </span>
+                      ) : isInProgress ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[11px] font-bold border border-amber-500/30">
+                          <Clock className="w-3 h-3 mr-1 text-amber-400" />
+                          Em Homologação ({pct}%)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[11px] font-bold border border-purple-500/30">
+                          <Clock className="w-3 h-3 mr-1 text-purple-400" />
+                          A Homologar (0%)
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Title (Coluna C) */}
+                    <div>
+                      <h3 className="text-sm font-bold text-white line-clamp-2 leading-snug">
+                        {item.funcionalidade}
+                      </h3>
+                    </div>
+
+                    {/* Onda & Etapa */}
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                      <span className="px-2 py-0.5 rounded bg-slate-900 text-purple-300 border border-slate-800 font-medium">
+                        {item.onda}
+                      </span>
+                      <span>•</span>
+                      <span className="text-slate-300">{item.etapa}</span>
+                    </div>
+
+                    {/* Estimativas */}
+                    <div className="text-[11px] text-slate-400 bg-slate-900/80 p-2.5 rounded-lg border border-slate-800 space-y-1">
+                      <div className="flex justify-between">
+                        <span>Início Estimado:</span>
+                        <span className="font-mono text-slate-200">{item.inicioEstimativa || '—'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Término Estimado:</span>
+                        <span className="font-mono text-slate-200">{item.terminoEstimativa || '—'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="space-y-1 pt-2 border-t border-slate-800/80">
+                    <div className="flex items-center justify-between text-[11px] font-semibold">
+                      <span className="text-slate-400">Progresso</span>
+                      <span className={isDone ? 'text-emerald-400 font-bold' : isInProgress ? 'text-amber-400 font-bold' : 'text-purple-400 font-bold'}>
+                        {pct}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          isDone ? 'bg-emerald-500' : isInProgress ? 'bg-amber-500' : 'bg-purple-500'
+                        }`}
+                        style={{ width: `${Math.max(4, pct)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Chart 1: BarChart % Médio por Onda */}
         <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-md space-y-4">

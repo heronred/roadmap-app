@@ -88,9 +88,10 @@ export default function App() {
       </main>
 
       <footer className="border-t border-slate-800/80 bg-slate-900/60 py-6 text-center text-xs text-slate-500 space-y-1">
-        <p>SuperApp •  Gestão de Planilha.</p>
+        <p>SuperApp • Gestão por Ondas</p>
         <p className="text-[11px] text-slate-600">
           Transformando informações técnicas em uma visão simples e acessível.
+
         </p>
       </footer>
     </div>

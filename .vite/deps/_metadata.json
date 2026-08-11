@@ -1,0 +1,82 @@
+{
+  "hash": "c8041c41",
+  "configHash": "f2909d6c",
+  "lockfileHash": "f63f7828",
+  "browserHash": "a0653002",
+  "optimized": {
+    "html2canvas": {
+      "src": "../../node_modules/html2canvas/dist/html2canvas.esm.js",
+      "file": "html2canvas.js",
+      "fileHash": "f526c530",
+      "needsInterop": false
+    },
+    "jspdf": {
+      "src": "../../node_modules/jspdf/dist/jspdf.es.min.js",
+      "file": "jspdf.js",
+      "fileHash": "4ddc6cd3",
+      "needsInterop": false
+    },
+    "lucide-react": {
+      "src": "../../node_modules/lucide-react/dist/esm/lucide-react.js",
+      "file": "lucide-react.js",
+      "fileHash": "55ce33eb",
+      "needsInterop": false
+    },
+    "pptxgenjs": {
+      "src": "../../node_modules/pptxgenjs/dist/pptxgen.es.js",
+      "file": "pptxgenjs.js",
+      "fileHash": "4c59badb",
+      "needsInterop": false
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "51d18969",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "25e4a984",
+      "needsInterop": true
+    },
+    "recharts": {
+      "src": "../../node_modules/recharts/es6/index.js",
+      "file": "recharts.js",
+      "fileHash": "4bbc7f31",
+      "needsInterop": false
+    },
+    "xlsx": {
+      "src": "../../node_modules/xlsx/xlsx.mjs",
+      "file": "xlsx.js",
+      "fileHash": "39ec4641",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "purify.es-AQD7XP4F": {
+      "file": "purify__es-AQD7XP4F.js"
+    },
+    "index.es-CHNJ6QPN": {
+      "file": "index__es-CHNJ6QPN.js"
+    },
+    "node_fs-5V5UZUIS": {
+      "file": "node_fs-5V5UZUIS.js"
+    },
+    "node_https-54L4AZ5R": {
+      "file": "node_https-54L4AZ5R.js"
+    },
+    "chunk-SITVF2AJ": {
+      "file": "chunk-SITVF2AJ.js"
+    },
+    "chunk-DWYGQXT6": {
+      "file": "chunk-DWYGQXT6.js"
+    },
+    "chunk-SNSCXBIF": {
+      "file": "chunk-SNSCXBIF.js"
+    },
+    "chunk-2TUXWMP5": {
+      "file": "chunk-2TUXWMP5.js"
+    }
+  }
+}

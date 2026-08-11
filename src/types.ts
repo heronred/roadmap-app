@@ -85,6 +85,8 @@ export interface DeadlineItem {
   status: DeadlineStatus;
   daysDiff: number; // days until deadline (negative if overdue)
   statusLabel: string;
+  isDefaultTermino?: boolean; // true if Column E was empty and defaulted to 31/12/2026
+  effectiveTermino?: string; // '2026-12-31' or actual Column E date
 }
 
 export interface OndaDeadlineSummary {
@@ -108,5 +110,6 @@ export interface DeadlineAnalytics {
   overdueItems: DeadlineItem[];
   dueSoonItems: DeadlineItem[];
   noStartDateItems: DeadlineItem[];
+  onTrackItems: DeadlineItem[];
   ondaDeadlineSummaries: OndaDeadlineSummary[];
 }

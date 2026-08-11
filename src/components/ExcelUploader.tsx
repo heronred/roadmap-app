@@ -111,10 +111,8 @@ export const ExcelUploader: React.FC<ExcelUploaderProps> = ({
             Faça Upload da sua Planilha Excel
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl leading-relaxed">
-              Transformamos o cronograma do <strong>SuperApp</strong> em uma visão simples e intuitiva.
-              A plataforma organiza automaticamente as funcionalidades por <strong>Onda</strong> e
-              <strong> Etapa</strong>, consolidando os dados da planilha e apresentando o
-              <strong> progresso do projeto</strong> de forma clara e visual.
+            Nossa plataforma identifica automaticamente células mescladas na <strong>Coluna A (ONDA)</strong>,
+            vincula cada item da <strong>Coluna C (Funcionalidades)</strong> ao seu respectivo ciclo, e calcula o progresso da <strong>Coluna G (%)</strong> por Onda e Etapa.
           </p>
         </div>
       </div>

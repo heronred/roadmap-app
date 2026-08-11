@@ -328,7 +328,7 @@ export async function parseExcelFile(file: File): Promise<UploadedDataset> {
   const startRowIndex = headerRowIndex >= 0 ? headerRowIndex + 1 : 0;
   const parsedRows: ExcelRow[] = [];
 
-  let lastOnda = 'ONDA 1';
+  let lastOnda = '';
 
   for (let r = startRowIndex; r < matrix.length; r++) {
     const row = matrix[r];
@@ -362,7 +362,14 @@ export async function parseExcelFile(file: File): Promise<UploadedDataset> {
     // Resolve ONDA (carry forward if merged or blank)
     let currentOnda = String(rawOnda || '').trim();
     if (currentOnda) {
-      lastOnda = currentOnda;
+      if (/^\d+$/.test(currentOnda)) {
+        currentOnda = `ONDA ${currentOnda}`;
+      }
+      if (currentOnda.toUpperCase().includes('ONDA')) {
+        lastOnda = currentOnda;
+      } else {
+        lastOnda = ''; // Clear carry-forward so subsequent blank merged rows under non-Onda headers (e.g. N.A) are also discarded
+      }
     } else {
       currentOnda = lastOnda;
     }
@@ -371,15 +378,30 @@ export async function parseExcelFile(file: File): Promise<UploadedDataset> {
       currentOnda = `ONDA ${currentOnda}`;
     }
 
+    // Disregard rows where Column A does not contain ONDA
+    if (!currentOnda || !currentOnda.toUpperCase().includes('ONDA')) {
+      continue;
+    }
+
     const pctNumber = parsePercentage(rawPct);
+
+    // Normalize Etapa (Column F) to avoid 'N.A' / 'N/A' stage bars
+    let etapaStr = String(rawEtapa || '').trim();
+    const etapaUpper = etapaStr.toUpperCase();
+    if (
+      !etapaStr ||
+      ['N.A', 'N.A.', 'N/A', 'N/A.', 'NA', '-', 'N/D', 'N/E', 'NULL', 'NONE'].includes(etapaUpper)
+    ) {
+      etapaStr = 'Geral';
+    }
 
     parsedRows.push({
       id: `row-${r}-${Math.random().toString(36).substr(2, 5)}`,
-      onda: currentOnda || 'ONDA 1',
+      onda: currentOnda,
       funcionalidade: funcStr || `Item ${parsedRows.length + 1}`,
       inicioEstimativa: parseExcelDate(rawInicio),
       terminoEstimativa: parseExcelDate(rawTermino),
-      etapa: String(rawEtapa || 'Planejamento').trim(),
+      etapa: etapaStr,
       porcentagem: pctNumber,
       rawRowIndex: r + 1,
     });

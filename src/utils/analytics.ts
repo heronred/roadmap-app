@@ -232,10 +232,7 @@ export interface DashboardAnalytics {
 }
 
 export function computeAnalytics(rawRows: ExcelRow[], customRefDateStr?: string): DashboardAnalytics {
-  // Filter out any rows where onda does not contain 'ONDA'
-  const rows = (rawRows || []).filter(
-    (r) => r.onda && r.onda.toUpperCase().includes('ONDA')
-  );
+  const rows = (rawRows || []).filter((r) => Boolean(r && (r.funcionalidade || r.onda)));
 
   const deadlineAnalytics = computeDeadlineAnalytics(rows, customRefDateStr);
 

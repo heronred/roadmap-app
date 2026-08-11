@@ -88,10 +88,9 @@ export default function App() {
       </main>
 
       <footer className="border-t border-slate-800/80 bg-slate-900/60 py-6 text-center text-xs text-slate-500 space-y-1">
-        <p>SuperApp • Gestão por Ondas</p>
+        <p>SUPERAPP • Analytics e Gestão de Planilhas Excel por Ondas</p>
         <p className="text-[11px] text-slate-600">
-          Transformando informações técnicas em uma visão simples e acessível.
-
+          Suporte automático a Coluna A (ONDA), Coluna C (Funcionalidades), Coluna D (Início), Coluna E (Término), Coluna F (Etapa) e Coluna G (%)
         </p>
       </footer>
     </div>

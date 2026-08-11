@@ -23,16 +23,18 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center justify-between h-16">
           {/* Logo & Title */}
           <div className="flex items-center space-x-3">
-
+            <div className="p-2 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-xl shadow-md text-slate-950 font-bold">
+              <Layers className="w-6 h-6" />
+            </div>
             <div>
               <div className="flex items-center space-x-2">
-                <span className="font-bold text-xl text-white tracking-wider">SuperApp</span>
+                <span className="font-bold text-xl text-white tracking-wider">SUPERAPP</span>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">
-                  Flow
+                  Analytics Ondas
                 </span>
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">
-                Transformando informações técnicas em uma visão simples e acessível.
+                Processador de Planilhas com Células Mescladas
               </p>
             </div>
           </div>

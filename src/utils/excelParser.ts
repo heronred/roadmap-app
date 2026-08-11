@@ -275,7 +275,18 @@ export async function parseExcelFile(file: File): Promise<UploadedDataset> {
       const strVal = String(cellVal || '')
         .toUpperCase()
         .trim();
-      if (strVal.includes('ONDA') || strVal.includes('WAVE')) {
+      if (
+        strVal.includes('ONDA') ||
+        strVal.includes('WAVE') ||
+        strVal.includes('FASE') ||
+        strVal.includes('GRUPO') ||
+        strVal.includes('CATEGORIA') ||
+        strVal.includes('BLOCO') ||
+        strVal.includes('MODULO') ||
+        strVal.includes('SPRINT') ||
+        strVal.includes('PROJETO') ||
+        strVal.includes('CICLO')
+      ) {
         ondaColIdx = cIdx;
         foundMatches++;
       }
@@ -334,7 +345,7 @@ export async function parseExcelFile(file: File): Promise<UploadedDataset> {
     const row = matrix[r];
     if (!row) continue;
 
-    const rawOnda = row[ondaColIdx];
+    const rawOnda = ondaColIdx === funcColIdx ? 'Geral' : row[ondaColIdx];
     const rawFunc = row[funcColIdx];
     const rawInicio = row[inicioColIdx];
     const rawTermino = row[terminoColIdx];
@@ -350,37 +361,30 @@ export async function parseExcelFile(file: File): Promise<UploadedDataset> {
 
     if (!hasAnyContent) continue;
 
-    // Skip row ONLY if it is a literal repeated column-header row (e.g. Col A="ONDA", Col C="FUNCIONALIDADE", Col G="%")
-    const isHeaderOndaCell = String(rawOnda || '').trim().toUpperCase().includes('ONDA') || String(rawOnda || '').trim().toUpperCase().includes('WAVE');
-    const isHeaderFuncCell = ['FUNCIONALIDADE', 'FUNCIONALIDADES', 'ITEM', 'ITENS', 'TAREFA', 'TAREFAS', 'DESCRIÇÃO', 'NOME DA TAREFA'].includes(funcUpper);
+    // Skip row ONLY if it is a literal repeated column-header row
+    const rawOndaUpper = String(rawOnda || '').trim().toUpperCase();
+    const isHeaderOndaCell = ['ONDA', 'ONDAS', 'WAVE', 'WAVES', 'FASE', 'FASES', 'GRUPO', 'GRUPOS', 'CATEGORIA', 'CATEGORIAS', 'MODULO', 'MODULOS', 'SPRINT', 'SPRINTS', 'CICLO', 'CICLOS'].some((k) => rawOndaUpper.includes(k));
+    const isHeaderFuncCell = ['FUNCIONALIDADE', 'FUNCIONALIDADES', 'ITEM', 'ITENS', 'TAREFA', 'TAREFAS', 'DESCRIÇÃO', 'NOME DA TAREFA', 'DETALHES'].includes(funcUpper);
     const isHeaderPctCell = String(rawPct || '').trim().toUpperCase().includes('PORCENTAGEM') || String(rawPct || '').trim() === '%' || String(rawPct || '').trim().toUpperCase().includes('PROGRESSO');
 
-    if (isHeaderOndaCell && isHeaderFuncCell && isHeaderPctCell) {
+    if (isHeaderFuncCell && (isHeaderOndaCell || isHeaderPctCell)) {
       continue;
     }
 
-    // Resolve ONDA (carry forward if merged or blank)
+    // Resolve ONDA / Group name (carry forward if merged or blank)
     let currentOnda = String(rawOnda || '').trim();
     if (currentOnda) {
-      if (/^\d+$/.test(currentOnda)) {
-        currentOnda = `ONDA ${currentOnda}`;
-      }
-      if (currentOnda.toUpperCase().includes('ONDA')) {
-        lastOnda = currentOnda;
+      const u = currentOnda.toUpperCase();
+      if (['N.A', 'N.A.', 'N/A', 'N/A.', 'NA', '-', 'N/D', 'N/E', 'NULL', 'NONE'].includes(u)) {
+        currentOnda = lastOnda || 'Geral';
       } else {
-        lastOnda = ''; // Clear carry-forward so subsequent blank merged rows under non-Onda headers (e.g. N.A) are also discarded
+        if (/^\d+$/.test(currentOnda)) {
+          currentOnda = `ONDA ${currentOnda}`;
+        }
+        lastOnda = currentOnda;
       }
     } else {
-      currentOnda = lastOnda;
-    }
-
-    if (/^\d+$/.test(currentOnda)) {
-      currentOnda = `ONDA ${currentOnda}`;
-    }
-
-    // Disregard rows where Column A does not contain ONDA
-    if (!currentOnda || !currentOnda.toUpperCase().includes('ONDA')) {
-      continue;
+      currentOnda = lastOnda || 'Geral';
     }
 
     const pctNumber = parsePercentage(rawPct);
